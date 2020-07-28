@@ -1,0 +1,192 @@
+---
+title: "Exploratory Analysis of Suicidal Dataset"
+author: "Berk Calik"
+date: "11/25/2019"
+output: html_document
+theme: united 
+highlight: tango
+df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+```
+
+
+```{r, include = FALSE}
+#installing the libraries 
+library(ISLR)
+library(tidyverse)
+library(haven)
+library(readxl)
+```
+
+```{r,include=FALSE}
+#Import suicidal dataset from csv file
+suicide <- read_csv("SuicidesData.csv")
+head(suicide)
+summary(suicide)
+```
+
+```{r, Change the column names, echo=FALSE}
+#Change the column names 
+colnames(suicide)[colnames(suicide)=="suicides/100k pop"] <- "suicide_per100k"
+colnames(suicide)[colnames(suicide)=="country-year"] <- "country_year"
+colnames(suicide)[colnames(suicide)=="gdp_per_capita ($)"] <- "gdp_per_capita"
+
+summary(suicide)
+```
+
+```{r,suicide by country,echo=FALSE}
+#Grouping # of suicides based on countries and year
+suicide_by_country <- suicide %>% 
+  group_by(country) %>%
+  
+#Mutating two more variables to filter the data and find the highest number and rate of suicides per country
+  mutate(
+    tot_suicide_by_country = sum(suicides_no, na.rm = TRUE), 
+    suicide_per100k_by_country = mean(suicide_per100k,na.rm = TRUE)) %>%
+  group_by(year, add = TRUE)  %>%
+#Mutating two more variables to filter the data and find the highest number and rate of suicides by country and year
+  mutate(
+    tot_suicide_by_year = sum(suicides_no, na.rm = TRUE),
+         suicide_per100k_by_year = mean(suicide_per100k,na.rm = TRUE)) 
+
+
+#summary(select(suicide_by_country,year,country,suicide_per100k_by_country,tot_suicide_by_year,tot_suicide_by_country))
+
+#Filtering the countries which has above than 23 suicides per 100k pop in 30 years in total
+suicide_by_country <- suicide_by_country %>% 
+  filter(suicide_per100k_by_country > 26) 
+
+#Plotting the graph
+ggplot(suicide_by_country, aes(x = year, y = suicide_per100k_by_year, colour = country)) +
+  geom_line() +
+  theme_minimal() + 
+  labs(x = 'Year', y = 'Number of suicides per 100k in a year') 
+  
+
+```
+
+
+```{r,Install png and ggnanimate packages for animated graphs, include=FALSE}
+#installing png and gganimate libraries for creating animated graphs/gifs
+library(png)
+library(gganimate)
+```
+
+```{r,suicide by year and country,echo = FALSE,warning=FALSE, comment=FALSE}
+#Grouping number of suicides based on country and year
+suicide_by_year <- suicide %>% 
+  group_by(country) %>%
+  mutate(tot_suicide_by_country = sum(suicides_no, na.rm = TRUE),
+         suicide_per100k_by_country = mean(suicide_per100k,na.rm = TRUE)) %>%
+#Mutating two more variables to filter the data and find the highest number and rate of suicides by country and year
+  group_by(year, add = TRUE)  %>%
+  mutate(tot_suicide_by_year = sum(suicides_no, na.rm = TRUE),
+         suicide_per100k_by_year = mean(suicide_per100k,na.rm = TRUE))
+
+#summary(select(suicide_by_country,year,country,suicide_per100k_by_country,tot_suicide_by_year,tot_suicide_by_country))
+
+suicide_by_year <- suicide_by_year %>% 
+#Filtering the countries which has above than 80k suicides in 30 years in total
+  filter(suicide_per100k_by_country > 21) %>%
+  group_by(year) 
+  
+
+anim_plot <- ggplot(suicide_by_year, aes(x = country , y = suicide_per100k_by_year, fill = country, colour = country))+
+  geom_histogram( stat = 'identity', binwidth = 0.5)  + 
+  theme_minimal() +
+  labs(x = "Countries", y = "Number of suicide per 100k in a year", xlab =' ' ) +
+  theme_bw() +
+  theme(axis.text.x=element_blank()) +
+  transition_states(
+    year,
+    transition_length = 2,
+    state_length = 1
+  ) + transition_time(year) +
+  labs(title = "Year: {frame_time}") +
+  ease_aes('sine-in-out')
+
+anim_save("suicide_by_year_plot.gif",anim_plot)
+
+anim_plot
+```
+
+### By Age
+
+**Number of suicides per 100k population by age**
+
+```{r,Number of suicides by age and country, echo=FALSE}
+#Grouping the dataset by country, year and age
+suicide_by_age<- suicide %>% 
+  group_by(country) %>% mutate(
+    tot_suicide_by_country = sum(suicides_no, na.rm = TRUE),
+         suicide_per100k_by_country = mean(suicide_per100k,na.rm = TRUE)) %>% 
+  group_by(year, add = TRUE) %>% 
+  group_by(age, add = TRUE)  %>% 
+  mutate(tot_suicide_by_age = sum(suicides_no, na.rm = TRUE), 
+         suicide_per100k_by_age = mean(suicide_per100k,na.rm = TRUE))
+
+#summary(select(suicide_by_age,year,tot_suicide_by_country,suicide_per100k_by_country, tot_suicide_by_age,suicide_per100k_by_age))
+
+
+#Filtering the countries which has above than 23 suicides per 100k pop in 30 years in total
+suicide_by_age <- suicide_by_age %>% 
+  filter(suicide_per100k_by_country > 23)
+
+##plot the graph lines
+ggplot(suicide_by_age,aes(x = year, y = suicide_per100k_by_age, colour = age)) +
+  geom_line() +
+  labs(title = '# of suicides based on age and country', x = 'Year', y = 'Number of suicides per 100k in a year') +
+  theme_minimal() + 
+  facet_wrap(~country)
+
+```
+
+### By Gender
+
+**Number of suicides per 100k population by gender**
+
+
+### By GDP per capita
+
+**Number of suicides per 100k population with GDP per capita**
+
+```{r,Suicide by country and GDP,echo=FALSE}
+ 
+#Grouping the dataset based on country and year
+suicide_by_GDP<- suicide %>% 
+  group_by(country) %>%
+  mutate(
+    tot_suicide_country = sum(suicides_no, na.rm = TRUE),
+    suicide_per100k_by_country = mean(suicide_per100k,na.rm = TRUE)) %>% 
+ group_by(year, add = TRUE)  %>% 
+  mutate(
+    tot_suicide_by_year = sum(suicides_no, na.rm = TRUE), 
+    suicides_per100k_by_year =mean(suicide_per100k,na.rm = TRUE))
+
+#summary(suicide_by_GDP)
+#head(suicide_by_GDP)
+
+#Filtering the countries which has above than 20 suicides per 100k pop in 30 years in total
+suicide_by_GDP <- suicide_by_GDP %>%
+  filter(suicide_per100k_by_country > 20)  
+  
+ 
+# Make a ggplot, but add frame=year: one image per year
+gdp_anima <- ggplot(suicide_by_GDP, aes(x= year,y=gdp_per_capita, size = suicides_per100k_by_year, color = country)) +
+  geom_point() +
+  scale_x_log10() +
+  theme_bw() +
+  labs(title = 'Year: {frame_time}', x = 'Year', y = 'GDP per capita in country ($)') +
+  transition_time(year) +
+  ease_aes('linear')
+
+# Save at gif:
+anim_save("ggplot_suicide_by_country_GDP.gif",gdp_anima)
+
+gdp_anima
+
+```
